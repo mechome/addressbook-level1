@@ -66,6 +66,7 @@ public class AddressBook {
      * =========================================================================
      */
     private static final String MESSAGE_ADDED = "New person added: %1$s, Phone: %2$s, Email: %3$s";
+    private static final String MESSAGE_UPDATED = "Person updated: %1$s, Phone: %2$s, Email: %3$s";
     private static final String MESSAGE_ADDRESSBOOK_CLEARED = "Address book has been cleared!";
     private static final String MESSAGE_COMMAND_HELP = "%1$s: %2$s";
     private static final String MESSAGE_COMMAND_HELP_PARAMETERS = "\tParameters: %1$s";
@@ -114,6 +115,13 @@ public class AddressBook {
     private static final String COMMAND_LIST_WORD = "list";
     private static final String COMMAND_LIST_DESC = "Displays all persons as a list with index numbers.";
     private static final String COMMAND_LIST_EXAMPLE = COMMAND_LIST_WORD;
+
+    private static final String COMMAND_UPDATE_WORD = "update";
+    private static final String COMMAND_UPDATE_DESC = "Updates a person's phone number and email in the address book.";
+    private static final String COMMAND_UPDATE_PARAMETERS = "NAME "
+                                                        + PERSON_DATA_PREFIX_PHONE + "PHONE_NUMBER "
+                                                        + PERSON_DATA_PREFIX_EMAIL + "EMAIL";
+    private static final String COMMAND_UPDATE_EXAMPLE = COMMAND_UPDATE_WORD + "John Doe p/12345678 e/jonnie@gmail.com";
 
     private static final String COMMAND_DELETE_WORD = "delete";
     private static final String COMMAND_DELETE_DESC = "Deletes a person identified by the index number used in "
@@ -383,6 +391,8 @@ public class AddressBook {
             return getUsageInfoForAllCommands();
         case COMMAND_EXIT_WORD:
             executeExitProgramRequest();
+        case COMMAND_UPDATE_WORD:
+            return executeUpdatePerson(commandArgs);
         default:
             return getMessageForInvalidCommandInput(commandType, getUsageInfoForAllCommands());
         }
@@ -491,6 +501,44 @@ public class AddressBook {
             }
         }
         return matchedPersons;
+    }
+
+    /**
+     * Updates a person's phone number and email address (specified by the command args) in the address book.
+     * The entire command arguments string is treated as a string representation of the person to update.
+     *
+     * @param commandArgs full command args string from the user
+     * @return feedback display message for the operation result
+     */
+    private static String executeUpdatePerson(String commandArgs) {
+        // try decoding a person from the raw args
+        final Optional<String[]> decodeResult = decodePersonFromString(commandArgs);
+
+        // checks if args are valid (decode result will not be present if the person is invalid)
+        if (!decodeResult.isPresent()) {
+            return getMessageForInvalidCommandInput(COMMAND_UPDATE_WORD, getUsageInfoForUpdateCommand());
+        }
+
+        // update the person as specified
+        final String[] personToUpdate = decodeResult.get();
+        boolean isUpdated = updatePersonInAddressBook(personToUpdate);
+        if (!isUpdated) {
+            return MESSAGE_PERSON_NOT_IN_ADDRESSBOOK;
+        } else {
+            return getMessageForSuccessfulUpdatePerson(personToUpdate);
+        }
+    }
+
+    /**
+     * Constructs a feedback message for a successful update command execution.
+     *
+     * @see #executeUpdatePerson(String)
+     * @param updatedPerson person who was successfully updated
+     * @return successful updated person feedback message
+     */
+    private static String getMessageForSuccessfulUpdatePerson(String[] updatedPerson) {
+        return String.format(MESSAGE_UPDATED,
+                getNameFromPerson(updatedPerson), getPhoneFromPerson(updatedPerson), getEmailFromPerson(updatedPerson));
     }
 
     /**
@@ -785,6 +833,29 @@ public class AddressBook {
     private static void addPersonToAddressBook(String[] person) {
         ALL_PERSONS.add(person);
         savePersonsToFile(getAllPersonsInAddressBook(), storageFilePath);
+    }
+
+    /**
+     * Updates a person in the address book. Saves changes to storage file.
+     *
+     * @param person to update
+     */
+    private static boolean updatePersonInAddressBook(String[] person) {
+        Optional<String[]> targetPerson = Optional.empty();
+        for (String[] entry : ALL_PERSONS) {
+            if (entry[PERSON_DATA_INDEX_NAME].equals(person[PERSON_DATA_INDEX_NAME])) {
+                targetPerson = Optional.of(entry);
+                break;
+            }
+        }
+        if (!targetPerson.isPresent()) {
+            return false;
+        } else {
+            targetPerson.get()[PERSON_DATA_INDEX_PHONE] = person[PERSON_DATA_INDEX_PHONE];
+            targetPerson.get()[PERSON_DATA_INDEX_EMAIL] = person[PERSON_DATA_INDEX_EMAIL];
+            savePersonsToFile(getAllPersonsInAddressBook(), storageFilePath);
+            return true;
+        }
     }
 
     /**
@@ -1103,6 +1174,13 @@ public class AddressBook {
         return String.format(MESSAGE_COMMAND_HELP, COMMAND_FIND_WORD, COMMAND_FIND_DESC) + LS
                 + String.format(MESSAGE_COMMAND_HELP_PARAMETERS, COMMAND_FIND_PARAMETERS) + LS
                 + String.format(MESSAGE_COMMAND_HELP_EXAMPLE, COMMAND_FIND_EXAMPLE) + LS;
+    }
+
+    /** Returns the string for showing 'update' command usage instruction */
+    private static String getUsageInfoForUpdateCommand() {
+        return String.format(MESSAGE_COMMAND_HELP, COMMAND_UPDATE_WORD, COMMAND_UPDATE_DESC) + LS
+                + String.format(MESSAGE_COMMAND_HELP_PARAMETERS, COMMAND_UPDATE_PARAMETERS) + LS
+                + String.format(MESSAGE_COMMAND_HELP_EXAMPLE, COMMAND_UPDATE_EXAMPLE) + LS;
     }
 
     /** Returns the string for showing 'delete' command usage instruction */
